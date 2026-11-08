@@ -2,7 +2,7 @@
 
 Open-source Android companion app for the M-VAVE FM-1 synthesizer.
 
-## Current milestone: BLE-MIDI diagnostic v0.1.0
+## Current milestone: BLE-MIDI diagnostic v0.1.1
 
 This is a native Kotlin / Jetpack Compose Android app, initially designed to find out whether the FM-1's current firmware offers the **standard BLE-MIDI service**. No changes to the FM-1 firmware are made.
 
@@ -10,11 +10,19 @@ This is a native Kotlin / Jetpack Compose Android app, initially designed to fin
 
 **Not implemented yet:** MIDI CC/SysEx sound editor, sequencer, preset/project transfer, screen mirroring, firmware updates, Play Store signing.
 
+## Android BLE scanning diagnostics
+
+Build 01 was installed successfully on a Samsung S24 Ultra, but a first scan reported zero nearby devices, while nRF Connect could detect several BLE devices in the same environment. Android 12+ requires `BLUETOOTH_SCAN` permission **and** either fine-location permission or a `neverForLocation` declaration for scanning. Because Companion never derives physical location, v0.1.1 adds the latter declaration; this may filter some BLE beacons, as documented by Android. The scan also reports how many advertisement callbacks arrived.
+
+To compare, close nRF Connect to avoid overlapping scans, open Companion, grant Nearby Devices permission, keep the screen awake, and scan for 12 seconds. Compare the callback count to nRF Connect in the same place. If the new build still sees zero, record the exact status text and the Android Nearby devices permission status.
+
+Android reference: https://developer.android.com/develop/connectivity/bluetooth/bt-permissions
+
 ## IMPORTANT: Firmware compatibility
 
-FM-1 hardware supports BLE MIDI and official M-VAVE firmware advertises this functionality. **Caravel 0.11.0 documents USB and TRS MIDI, not BLE-MIDI**. The Caravel Plus build on our FM-1 has not been shown to advertise BLE-MIDI, so the app may not find or connect to it. This is a firmware compatibility question, not a reason to flash working firmware.
+FM-1 hardware supports BLE MIDI and official M-VAVE firmware advertises this functionality. **The Caravel project explicitly states in LICENSING.md that it never enables the Bluetooth / Wi-Fi radio**. The Caravel Plus build on our FM-1 has not been shown to advertise BLE-MIDI, so the app may not find or connect to it. This is a firmware compatibility question, not a reason to flash working firmware.
 
-- Caravel: https://github.com/bonszaimusic/caravel
+- Caravel radio documentation: https://github.com/bonszaimusic/caravel/blob/main/LICENSING.md
 - Android BLE MIDI API: https://developer.android.com/reference/android/media/midi/MidiManager
 - M-VAVE FM-1 product information: https://www.m-vave.com/
 
