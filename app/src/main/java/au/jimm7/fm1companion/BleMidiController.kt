@@ -3,6 +3,9 @@ package au.jimm7.fm1companion
 import android.Manifest
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
+import android.bluetooth.BluetoothGattCallback
+import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
@@ -24,6 +27,8 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.io.IOException
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 data class BleCandidate(
     val device: BluetoothDevice,
@@ -40,10 +45,11 @@ class BleMidiController(private val context: Context) {
     private val midiManager = context.getSystemService(MidiManager::class.java)
     private val midiUuid = ParcelUuid.fromString("03B80E5A-EDE8-4B33-A751-6CE34EC4C700")
     private var scanCallback: ScanCallback? = null
+    private var verificationGatt: BluetoothGatt? = null
     private var openedDevice: MidiDevice? = null
     private var sendPort: MidiInputPort? = null
     private var receivePort: MidiOutputPort? = null
-    private var session = 0
+    @Volatile private var session = 0
     private var receivedScanPackets = 0
 
     val nearby = mutableStateListOf<BleCandidate>()
@@ -145,14 +151,87 @@ class BleMidiController(private val context: Context) {
         } catch (_: Exception) { }
     }
 
+    /** Confirm actual GATT MIDI service/characteristic before opening Android MIDI. */
     fun connect(candidate: BleCandidate) {
         if (!hasPermissions()) { report("Bluetooth permission missing."); return }
-        val manager = midiManager
-        if (manager == null) { report("Android MIDI is unavailable."); return }
+        if (midiManager == null) { report("Android MIDI is unavailable."); return }
         stopScan()
         disconnect()
         val currentSession = ++session
-        report("Attempting MIDI: " + candidate.name)
+        val finished = AtomicBoolean(false)
+        report("Checking BLE services on " + candidate.name + "…")
+        fun complete(gatt: BluetoothGatt, verified: Boolean, message: String) {
+            if (!finished.compareAndSet(false, true)) return
+            try { gatt.disconnect() } catch (_: Exception) { }
+            try { gatt.close() } catch (_: Exception) { }
+            main.post {
+                if (currentSession != session) return@post
+                verificationGatt = null
+                report(message)
+                if (verified) main.postDelayed({
+                    if (currentSession == session) openMidiPort(candidate, currentSession)
+                }, 400L)
+            }
+        }
+        val callback = object : BluetoothGattCallback() {
+            override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
+                if (finished.get()) return
+                if (currentSession != session) {
+                    complete(gatt, false, "Verification cancelled.")
+                } else if (status != BluetoothGatt.GATT_SUCCESS) {
+                    complete(gatt, false, "GATT connection failed: " + status)
+                } else if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    try {
+                        if (!gatt.discoverServices()) complete(gatt, false, "Cannot discover BLE services.")
+                    } catch (e: Exception) {
+                        complete(gatt, false, "BLE discovery error: " + e.message)
+                    }
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    complete(gatt, false, "Disconnected before BLE verification.")
+                }
+            }
+
+            override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
+                if (finished.get()) return
+                if (status != BluetoothGatt.GATT_SUCCESS) {
+                    complete(gatt, false, "Service discovery failed: " + status)
+                    return
+                }
+                val midiService = gatt.getService(midiUuid.uuid)
+                val characteristic = UUID.fromString("7772E5DB-3868-4112-A1A9-F2669D106BF3")
+                val isMidi = midiService?.getCharacteristic(characteristic) != null
+                val found = gatt.services.joinToString(", ") { it.uuid.toString().take(8) }
+                if (isMidi) {
+                    complete(gatt, true, "Standard BLE-MIDI service verified.")
+                } else {
+                    complete(gatt, false, "No BLE-MIDI service on " + candidate.name +
+                        ". GATT services: " + found.ifBlank { "none" })
+                }
+            }
+        }
+        try {
+            verificationGatt = candidate.device.connectGatt(
+                context, false, callback, BluetoothDevice.TRANSPORT_LE
+            )
+            if (verificationGatt == null) {
+                finished.set(true)
+                report("BLE verification did not start.")
+                return
+            }
+        } catch (e: Exception) {
+            finished.set(true)
+            report("BLE verification failed: " + e.message)
+            return
+        }
+        main.postDelayed({
+            if (currentSession == session && !finished.get()) {
+                verificationGatt?.let { complete(it, false, "BLE verification timed out.") }
+            }
+        }, 12_000L)
+    }
+
+    private fun openMidiPort(candidate: BleCandidate, currentSession: Int) {
+        val manager = midiManager ?: return
         try {
             manager.openBluetoothDevice(candidate.device, { device ->
                 main.post {
@@ -169,7 +248,7 @@ class BleMidiController(private val context: Context) {
                             openedDevice = device
                             sendPort = port
                             connected = true
-                            report("Connected to MIDI device: " + candidate.name)
+                            report("Verified BLE-MIDI; MIDI port open: " + candidate.name)
                             if (device.info.outputPortCount > 0) {
                                 try {
                                     val rx = device.openOutputPort(0)
@@ -218,6 +297,9 @@ class BleMidiController(private val context: Context) {
 
     fun disconnect() {
         session++
+        try { verificationGatt?.disconnect() } catch (_: Exception) { }
+        try { verificationGatt?.close() } catch (_: Exception) { }
+        verificationGatt = null
         if (sendPort != null) {
             for (ch in 1..16) send(MidiMessages.allNotesOff(ch))
         }
