@@ -84,7 +84,7 @@ private fun CompanionScreen(midi: BleMidiController, requestScan: () -> Unit) {
     ) {
         Text("FM-1 Companion", style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold)
-        Text("Bluetooth MIDI diagnostic · v0.1.1", style = MaterialTheme.typography.bodySmall)
+        Text("Bluetooth MIDI diagnostic · v0.1.2", style = MaterialTheme.typography.bodySmall)
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("Connection", style = MaterialTheme.typography.titleLarge)
@@ -115,7 +115,7 @@ private fun CompanionScreen(midi: BleMidiController, requestScan: () -> Unit) {
                         Text((if (candidate.midiAdvertised) "BLE-MIDI advertised" else "BLE device") +
                             " · " + candidate.address, style = MaterialTheme.typography.bodySmall)
                         OutlinedButton(onClick = { midi.connect(candidate) }) {
-                            Text("Try MIDI connection")
+                            Text("Verify BLE-MIDI")
                         }
                     }
                 }
