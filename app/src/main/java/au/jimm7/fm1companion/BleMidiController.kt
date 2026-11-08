@@ -44,6 +44,7 @@ class BleMidiController(private val context: Context) {
     private var sendPort: MidiInputPort? = null
     private var receivePort: MidiOutputPort? = null
     private var session = 0
+    private var receivedScanPackets = 0
 
     val nearby = mutableStateListOf<BleCandidate>()
     val events = mutableStateListOf<String>()
@@ -85,6 +86,7 @@ class BleMidiController(private val context: Context) {
         if (scanner == null) { report("BLE scanner unavailable."); return }
         stopScan()
         nearby.clear()
+        receivedScanPackets = 0
         val callback = object : ScanCallback() {
             override fun onScanResult(callbackType: Int, result: ScanResult) {
                 main.post { onResult(result) }
@@ -105,17 +107,19 @@ class BleMidiController(private val context: Context) {
             report("Scanning failed: " + e.message)
             return
         }
-        report("Scanning nearby BLE devices for 12 seconds…")
+        report("Scanning for 12 seconds (Android API " + Build.VERSION.SDK_INT + "; Nearby devices permission granted)…")
         main.postDelayed({
             if (scanCallback === callback) {
                 stopScan()
-                report("Scan completed: " + nearby.size + " device(s).")
+                report("Scan completed: " + nearby.size + " unique device(s), " + receivedScanPackets + " advertisement callback(s)." +
+                    if (receivedScanPackets == 0) " No scan results reached the app; compare with nRF Connect." else "")
             }
         }, 12_000L)
     }
 
     private fun onResult(result: ScanResult) {
         if (scanCallback == null) return
+        receivedScanPackets++
         val device = result.device
         val address = device.address
         val name = result.scanRecord?.deviceName
