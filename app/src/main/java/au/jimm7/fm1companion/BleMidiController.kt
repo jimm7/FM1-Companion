@@ -76,7 +76,7 @@ class BleMidiController(private val context: Context) {
         if (events.size > 40) events.removeAt(events.lastIndex)
     }
 
-    fun setChannel(delta: Int) { channel = (channel + delta).coerceIn(1, 16) }
+    fun adjustChannel(delta: Int) { channel = (channel + delta).coerceIn(1, 16) }
 
     fun scan() {
         if (!hasPermissions()) { report("Nearby devices permission required."); return }
