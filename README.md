@@ -2,17 +2,17 @@
 
 Open-source Android companion app for the M-VAVE FM-1 synthesizer.
 
-## Current milestone: BLE-MIDI diagnostic v0.1.1
+## Current milestone: BLE-MIDI diagnostic v0.1.2
 
 This is a native Kotlin / Jetpack Compose Android app, initially designed to find out whether the FM-1's current firmware offers the **standard BLE-MIDI service**. No changes to the FM-1 firmware are made.
 
-**Implemented in source:** Android Bluetooth permissions; nearby BLE scan; MIDI service advertisement indicator; Android MidiManager BLE MIDI connection; MIDI note test keyboard (C4 to C5), channel selection 1–16; incoming MIDI hex log; disconnect All Notes Off; GitHub Actions debug APK build and MIDI unit tests.
+**Implemented in source:** Android Bluetooth permissions; nearby BLE scan; MIDI service advertisement indicator; GATT service and MIDI characteristic verification before attempting Android MidiManager BLE MIDI connection; MIDI note test keyboard (C4 to C5), channel selection 1–16; incoming MIDI hex log; disconnect All Notes Off; GitHub Actions debug APK build and MIDI unit tests.
 
 **Not implemented yet:** MIDI CC/SysEx sound editor, sequencer, preset/project transfer, screen mirroring, firmware updates, Play Store signing.
 
 ## Android BLE scanning diagnostics
 
-Build 01 was installed successfully on a Samsung S24 Ultra, but a first scan reported zero nearby devices, while nRF Connect could detect several BLE devices in the same environment. Android 12+ requires `BLUETOOTH_SCAN` permission **and** either fine-location permission or a `neverForLocation` declaration for scanning. Because Companion never derives physical location, v0.1.1 adds the latter declaration; this may filter some BLE beacons, as documented by Android. The scan also reports how many advertisement callbacks arrived.
+Build 01 was installed successfully on a Samsung S24 Ultra, but a first scan reported zero nearby devices, while nRF Connect could detect several BLE devices in the same environment. Android 12+ requires `BLUETOOTH_SCAN` permission **and** either fine-location permission or a `neverForLocation` declaration for scanning. Because Companion never derives physical location, v0.1.2 adds the latter declaration; this may filter some BLE beacons, as documented by Android. The scan also reports how many advertisement callbacks arrived.
 
 To compare, close nRF Connect to avoid overlapping scans, open Companion, grant Nearby Devices permission, keep the screen awake, and scan for 12 seconds. Compare the callback count to nRF Connect in the same place. If the new build still sees zero, record the exact status text and the Android Nearby devices permission status.
 
