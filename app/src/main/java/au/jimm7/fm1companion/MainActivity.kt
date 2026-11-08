@@ -124,11 +124,11 @@ private fun CompanionScreen(midi: BleMidiController, requestScan: () -> Unit) {
         HorizontalDivider()
         Text("MIDI keyboard", style = MaterialTheme.typography.titleLarge)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            OutlinedButton(onClick = { midi.setChannel(-1) }, enabled = midi.channel > 1) {
+            OutlinedButton(onClick = { midi.adjustChannel(-1) }, enabled = midi.channel > 1) {
                 Text("−")
             }
             Text("Channel " + midi.channel, modifier = Modifier.padding(top = 12.dp))
-            OutlinedButton(onClick = { midi.setChannel(1) }, enabled = midi.channel < 16) {
+            OutlinedButton(onClick = { midi.adjustChannel(1) }, enabled = midi.channel < 16) {
                 Text("+")
             }
         }
